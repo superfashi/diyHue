@@ -135,6 +135,14 @@ lightTypes["LCG001"]["state"] = {"alert": "none", "bri":0, "colormode": "xy", "e
 lightTypes["LCG001"]["config"] = {"archetype": "sultanbulb","direction": "omnidirectional","function": "mixed","startup": {"configured": True, "mode": "safety"}}
 lightTypes["LCG001"]["dynamics"] = {"speed": 0, "speed_valid": False, "status": "none", "status_values": ["none", "dynamic_palette"]}
 
+## Hue Color Candle
+lightTypes["LCE003"] = {"v1_static": {"type": "Extended color light", "swversion":"1.104.2","swconfigid":"929003595901","productid":"Philips-LCE003-1-B39ECLv1","manufacturername": "Signify Netherlands B.V."}}
+lightTypes["LCE003"]["v1_static"]["swupdate"] = {"state": "noupdates","lastinstall": "2020-12-09T19:13:52"}
+lightTypes["LCE003"]["v1_static"]["capabilities"] = {"certified": True,"control": {"colorgamut": [[0.6915,0.3083],[0.17,0.7],[0.1532,0.0475]],"colorgamuttype": "C","ct": {"max": 500,"min": 153},"maxlumen": 470,"mindimlevel": 1000},"streaming": {"proxy": False,"renderer": True}}
+lightTypes["LCE003"]["device"] = {"certified": True,"manufacturer_name": "Signify Netherlands B.V.","product_archetype": "candle_bulb","product_name": "Hue color candle","software_version": "1.104.2"}
+lightTypes["LCE003"]["state"] = {"on": False, "bri": 200, "hue": 0, "sat": 0, "xy": [0.0, 0.0], "ct": 366, "alert": "none", "mode": "homeautomation", "effect": "none", "colormode": "ct", "reachable": True}
+lightTypes["LCE003"]["config"] = {"archetype": "candlebulb", "function": "mixed", "direction": "omnidirectional","startup":{"mode":"safety","configured": True}}
+lightTypes["LCE003"]["dynamics"] = {"speed": 0, "speed_valid": False, "status": "none", "status_values": ["none", "dynamic_palette"]}
 
 archetype = {"tableshade":"table_shade",
     "flexiblelamp":"flexible_lamp",
