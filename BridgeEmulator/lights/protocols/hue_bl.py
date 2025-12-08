@@ -1,6 +1,5 @@
 import logManager
 import asyncio
-from functions.colors import convert_xy, convert_rgb_xy
 logging = logManager.logger.get_logger(__name__)
 Connections = {}
 
@@ -73,6 +72,7 @@ class Lamp(object):
     async def get_power(self):
         """Gets the current power state"""
         power = await self.client.read_gatt_char(CHAR_POWER)
+        assert len(power) == 1
         return bool(power[0])
 
     async def set_power(self, on):
@@ -82,33 +82,35 @@ class Lamp(object):
     async def get_brightness(self):
         """Gets the current brightness as a float between 0.0 and 1.0"""
         brightness = await self.client.read_gatt_char(CHAR_BRIGHTNESS)
-        return brightness[0] / 255
+        return brightness[0]
 
     async def set_brightness(self, brightness):
         """Sets the brightness from a float between 0.0 and 1.0"""
-        await self.client.write_gatt_char(CHAR_BRIGHTNESS, bytes([max(min(int(brightness * 255), 254), 1)]), response=True)
+        await self.client.write_gatt_char(CHAR_BRIGHTNESS, bytes([brightness & 0xff]), response=True)
+
+    async def get_temperature(self):
+        """Gets the current color temperature"""
+        temperature = await self.client.read_gatt_char(CHAR_TEMPERATURE)
+        assert len(temperature) == 2
+        if temperature == b'\xff\xff':
+            return None  # temperature not used
+        return unpack('<H', temperature)[0]
+
+    async def set_temperature(self, temperature):
+        payload = pack('<H', temperature)
+        await self.client.write_gatt_char(CHAR_TEMPERATURE, payload, response=True)
 
     async def get_color_xy(self):
-        """Gets the current XY color coordinates as floats between 0.0 and 1.0"""
+        """Gets the current XY color coordinates as ints between 0 and 65535"""
         buf = await self.client.read_gatt_char(CHAR_COLOR)
-        x, y = unpack('<HH', buf)
-        return x / 0xFFFF, y / 0xFFFF
+        if buf == b'\xff\xff\xff\xff':
+            return None  # color not used
+        return unpack('<HH', buf)
 
     async def set_color_xy(self, x, y):
-        """Sets the XY color coordinates from floats between 0.0 and 1.0"""
-        buf = pack('<HH', int(x * 0xFFFF), int(y * 0xFFFF))
+        """Sets the XY color coordinates from floats between 0 and 65535"""
+        buf = pack('<HH', x, y)
         await self.client.write_gatt_char(CHAR_COLOR, buf, response=True)
-
-    async def get_color_rgb(self):
-        """Gets the RGB color as floats between 0.0 and 1.0"""
-        brightness = self.get_brightness()
-        x, y = await self.get_color_xy()
-        return convert_xy(x, y, brightness)
-
-    async def set_color_rgb(self, r, g, b):
-        """Sets the RGB color from floats between 0.0 and 1.0"""
-        x, y = convert_rgb_xy(r, g, b)
-        await self.set_color_xy(x, y)
 
     def supports_colour_xy(self):
         return self.client.services.get_characteristic(CHAR_COLOR) is not None
@@ -136,12 +138,17 @@ async def set_light_async(light, data, retry=False):
             if key == "on":
                 await c.set_power(value)
             if key == "bri":
-                await c.set_brightness(value / 254)
+                await c.set_brightness(value)
             if key == "xy":
                 # not all models support color
                 try:
-                    color = convert_xy(value[0], value[1], light.state["bri"])
-                    await c.set_color_rgb(color[0] / 254, color[1] / 254, color[2] / 254)
+                    await c.set_color_xy(int(value[0] * 0xFFFF), int(value[1] * 0xFFFF))
+                except Exception as e:
+                    logging.error(e)
+            if key == "ct":
+                # not all models support color temperature
+                try:
+                    await c.set_temperature(value)
                 except Exception as e:
                     logging.error(e)
     except:
@@ -159,12 +166,18 @@ async def get_light_state_async(address, retry=False):
     try:
         bl_light = await connect(address)
         state["on"] = await bl_light.get_power()
-        state["xy"] = await bl_light.get_color_xy()
+        color_xy = None
         if bl_light.supports_colour_xy():
-            state["colormode"] = "xy"
-        elif bl_light.supports_colour_temp():
-            state["colormode"] = "ct"
-        elif bl_light.supports_brightness():
+            color_xy = await bl_light.get_color_xy()
+            if color_xy is not None:
+                state["color_xy"] = [color_xy[0] / 0xFFFF, color_xy[1] / 0xFFFF]
+                state["colormode"] = "xy"
+        if color_xy is None and bl_light.supports_colour_temp():
+            color_temp = await bl_light.get_temperature()
+            if color_temp is not None:
+                state["ct"] = color_temp
+                state["colormode"] = "ct"
+        if bl_light.supports_brightness():
             state["bri"] = await bl_light.get_brightness()
     except Exception as e:
         logging.error(e)
