@@ -1,5 +1,5 @@
 from astral.sun import sun
-from astral import LocationInfo
+from astral import Observer
 from functions.rules import rulesProcessor
 from datetime import datetime, timezone
 from time import sleep
@@ -17,16 +17,16 @@ def runBackgroundSleep(instance, seconds):
 
 def daylightSensor(tz, sensor):#tz = timezone
     if sensor.config["configured"]:
-        localzone = LocationInfo('localzone', tz.split("/")[1], tz, sensor.protocol_cfg["lat"], sensor.protocol_cfg["long"])
-        s = sun(localzone.observer, date=datetime.now(timezone.utc).replace(tzinfo=None))
-        deltaSunset = s['sunset'].replace(tzinfo=None) - datetime.now(timezone.utc).replace(tzinfo=None)
-        deltaSunrise = s['sunrise'].replace(tzinfo=None) - datetime.now(timezone.utc).replace(tzinfo=None)
+        observer = Observer(sensor.protocol_cfg["lat"], sensor.protocol_cfg["long"])
+        s = sun(observer, tzinfo=tz)
+        current_time = datetime.now(timezone.utc)
+        deltaSunset = s['sunset'].astimezone(tz=timezone.utc) - current_time
+        deltaSunrise = s['sunrise'].astimezone(tz=timezone.utc) - current_time
         deltaSunsetOffset = deltaSunset.total_seconds() + sensor.config["sunsetoffset"] * 60
         deltaSunriseOffset = deltaSunrise.total_seconds() + sensor.config["sunriseoffset"] * 60
         logging.info("deltaSunsetOffset: " + str(deltaSunsetOffset))
         logging.info("deltaSunriseOffset: " + str(deltaSunriseOffset))
-        sensor.config["sunset"] = s['sunset'].astimezone().strftime("%H:%M:%S")
-        current_time =  datetime.now(timezone.utc).replace(tzinfo=None)
+        sensor.config["sunset"] = s['sunset'].strftime("%H:%M:%S")
         if deltaSunriseOffset < 0 and deltaSunsetOffset > 0:
             sensor.state["daylight"] = True
             logging.info("set daylight sensor to true")
@@ -36,6 +36,7 @@ def daylightSensor(tz, sensor):#tz = timezone
         if deltaSunsetOffset > 0 and deltaSunsetOffset < 3600:
             logging.info("will start the sleep for sunset")
             sleep(deltaSunsetOffset)
+            current_time = datetime.now(timezone.utc)
             logging.debug("sleep finish at " + current_time.strftime("%Y-%m-%dT%H:%M:%S"))
             sensor.state = {"daylight":False,"lastupdated": current_time.strftime("%Y-%m-%dT%H:%M:%S")}
             sensor.dxState["daylight"] = current_time
@@ -43,6 +44,7 @@ def daylightSensor(tz, sensor):#tz = timezone
         elif deltaSunriseOffset > 0 and deltaSunriseOffset < 3600:
             logging.info("will start the sleep for sunrise")
             sleep(deltaSunriseOffset)
+            current_time = datetime.now(timezone.utc)
             logging.debug("sleep finish at " + current_time.strftime("%Y-%m-%dT%H:%M:%S"))
             sensor.state = {"daylight":True,"lastupdated": current_time.strftime("%Y-%m-%dT%H:%M:%S")}
             sensor.dxState["daylight"] = current_time
