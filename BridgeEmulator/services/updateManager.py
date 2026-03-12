@@ -158,4 +158,4 @@ def startupCheck() -> None:
         bridgeConfig["config"]["swupdate2"]["install"] = False
         update_swupdate2_timestamps()
     versionCheck()
-    githubCheck()
+    # githubCheck()
